@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  php:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_cont
+    image: chec-app38:5001/php_img
+    restart: always  
+    ports:
+      - 8080:80
+    volumes:
+      - .:/var/www/html/chatbotchec
+      #- ../chatWeb/dist/chatWeb:/var/www/html/chatWeb

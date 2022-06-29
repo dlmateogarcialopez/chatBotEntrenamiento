@@ -1,0 +1,97 @@
+
+
+    {
+    "skype": {
+      "type": "message",
+      "attachments": [
+        {
+          "contentType": "application/vnd.microsoft.card.thumbnail",
+          "content": {
+            "title": "Falta de Energía",
+            "subtitle": "Consulta si tu sector presenta algún fallo",
+            "images": [
+              {
+                "url": "https://chatbotchec.website/chatbotCHECUsuarios/img/FaltaEnergia250x250.jpg"
+              }
+            ],
+            "buttons": [
+              {
+                "type": "imBack",
+                "title": "Consultar Interrupción de Energía",
+                "value": "Consultar Interrupción de Energía"
+              }
+            ]
+          }
+        },
+        {
+          "contentType": "application/vnd.microsoft.card.thumbnail",
+          "content": {
+            "title": "Pago en Línea",
+            "subtitle": "Aprenda a pagar su factura de la energía en linea",
+            "images": [
+              {
+                "url": "https://chatbotchec.website/chatbotCHECUsuarios/img/PagoenLinea_250x250.jpg"
+              }
+            ],
+            "buttons": [
+              {
+                "type": "imBack",
+                "title": "Consultar Pago en Línea",
+                "value": "Consultar Pago en Línea"
+              }
+            ]
+          }
+        },
+        {
+          "contentType": "application/vnd.microsoft.card.thumbnail",
+          "content": {
+            "title": "Puntos de Atención",
+            "subtitle": "Conoce la ubicación y los horarios de cada uno de los puntos de atención",
+            "images": [
+              {
+                "url": "https://chatbotchec.website/chatbotCHECUsuarios/img/PuntosAtencion250x250.jpg"
+              }
+            ],
+            "buttons": [
+              {
+                "type": "imBack",
+                "title": "Consultar Puntos de Atención",
+                "value": "Consultar Puntos de Atención"
+              }
+            ]
+          }
+        },
+        {
+          "contentType": "application/vnd.microsoft.card.thumbnail",
+          "content": {
+            "title": "Vacantes",
+            "subtitle": "Encuentra las vacantes que tenemos para ti",
+            "images": [
+              {
+                "url": "https://chatbotchec.website/chatbotCHECUsuarios/img/Vacantes_250x250.jpg"
+              }
+            ],
+            "buttons": [
+              {
+                "type": "imBack",
+                "title": "Ver Vacantes",
+                "value": "Ver Vacantes"
+              }
+            ]
+          }
+        },
+        {
+          "contentType": "application/vnd.microsoft.card.thumbnail",
+          "content": {
+            "buttons": [
+              {
+                "type": "imBack",
+                "title": "Otros",
+                "value": "Otros"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }

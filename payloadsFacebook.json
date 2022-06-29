@@ -1,0 +1,72 @@
+{
+  "facebook": {
+    "attachment": {
+      "type": "template",
+      "payload": {
+        "template_type": "list",
+        "top_element_style": "compact",
+        "elements": [
+          {
+            "title": "Falta de Energía",
+            "image_url": "https://chatbotchecserver.com/chatbotCHECUsuarios/img/FaltaEnergia250x250.jpg",
+            "subtitle": "Consulta si tu sector presenta algún fallo",
+            "buttons": [
+              {
+                "type": "postback",
+                "payload": "Falta_Energía",
+                "title": "Consultar Interrupción de Energía",
+                "webview_height_ratio": "tall"
+              }
+            ]
+          },
+          {
+            "title": "Pago en Línea",
+            "image_url": "https://chatbotchecserver.com/chatbotCHECUsuarios/img/PagoenLinea_250x250.jpg",
+            "subtitle": "Aprenda a pagar su factura de la energía en linea",
+            "buttons": [
+              {
+                "type": "postback",
+                "title": "Ver Información",
+                "payload": "Pago_Linea",
+                "webview_height_ratio": "tall"
+              }
+            ]
+          },
+          {
+            "title": "Puntos de Atención",
+            "image_url": "https://chatbotchecserver.com/chatbotCHECUsuarios/img/PuntosAtencion250x250.jpg",
+            "subtitle": "Conoce la ubicación y los horarios de cada uno de los puntos de atención",
+            "buttons": [
+              {
+                "type": "postback",
+                "title": "Consultar Puntos de Atención",
+                "payload": "Centros_Pago",
+                "webview_height_ratio": "tall"
+              }
+            ]
+          },
+          {
+            "title": "Vacantes",
+            "image_url": "https://chatbotchecserver.com/chatbotCHECUsuarios/img/Vacantes_250x250.jpg",
+            "subtitle": "Encuentra las vacantes que tenemos para ti",
+            "buttons": [
+              {
+                "type": "postback",
+                "title": "Ver Vacantes",
+                "payload": "ver_vacantes",
+                "webview_height_ratio": "tall"
+              }
+            ]
+          }
+        ],
+        "buttons": [
+          {
+            "title": "Otras Consultas",
+            "type": "postback",
+            "payload": "otras_consultas"
+          }
+        ]
+      }
+    }
+  }
+}

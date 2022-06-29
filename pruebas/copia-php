@@ -1,0 +1,1103 @@
+<?php
+
+error_reporting(-1);
+ini_set('display_errors', 'On');
+require './consultas.php';
+require_once __DIR__ . '/vendor/autoload.php';
+
+class chatBotAPI
+{
+    //credenciales mlab Universidad
+    //private $host = "mongodb://bdMongo:pruebas123@ds151066.mlab.com:51066/proyecto-um-dev";
+    
+    //Credenciales HEROKU Mlab pruebas
+    private $host = "mongodb://heroku_69tb2th4:m2oheamen7422pmnq3htdb56dt@ds113775.mlab.com:13775/heroku_69tb2th4";
+    
+    //Credenciales HEROKU Mlab ChatBot Usuarios Prod
+    /* private $host = "mongodb://heroku_qqkvqh3x:b50q78jtvojl1aobh01eut4rpj@ds215358-a1.mlab.com:15358/heroku_qqkvqh3x"; */
+    
+    //conexion a BD
+    private $con;
+    
+    public function __construct()
+    {
+        $this->connectToDB();
+    }
+    
+    //Obtener el cuerpo de la peticion POST del chatbot
+    public function detectRequestBody()
+    {
+        $inputJSON = file_get_contents('php://input');
+        $input = json_decode($inputJSON, true);
+        return $input;
+    }
+    
+    //Conectar a la Base de datos
+    public function connectToDB()
+    {
+        
+        try {
+            $this->con = new MongoDB\Driver\Manager($this->host);
+        } catch (MongoDB\Driver\Exception\Exception $e) {
+            $filename = basename(__FILE__);
+            echo "The $filename script has experienced an error.\n";
+            echo "It failed with the following exception:\n";
+            echo "Exception:", $e->getMessage(), "\n";
+            echo "In file:", $e->getFile(), "\n";
+            echo "On line:", $e->getLine(), "\n";
+        }
+        
+    }
+
+
+    //obtener informacion de facebook para tratar los fallback
+    public function guardarReqBody($reqBody){
+        insertIdConversacion($this->con, $reqBody);
+    }
+    
+    public function getProfileFacebook($reqBody)
+    {
+        /* 
+        PETICIONES A FACEBOOK PARA OBTENER LOS ATRIBUTOS DE USUARIOS
+        */
+        $token = "EAAEbDdhspC4BALmpd322QT7nh1t6U2RKyaZB94oJnTyCl7ZAw9jM1AnflhIbwfYFDNqm0AE3FRfsIDBtoEtK86z219PZAUm5W44wfVxQarWo29u0cwLOpTYf9VnrvGLH9wdxXX8xgiD6ioqMTN3vJEbuj8uTtLOueTUfgE33AZDZD";
+        //$this->insertIdConversacion($reqBody);
+        $senderid = '';
+        if (isset($reqBody['originalDetectIntentRequest']['source'])) {
+            
+            $senderid = $reqBody['originalDetectIntentRequest']['payload']['data']['sender']['id'];
+        } else {
+            
+            $senderid = '2868075403232590';
+        }
+        $fb = new \Facebook\Facebook([
+            'app_id' => '311221256234030',
+            'app_secret' => '9bbe00eaf82a480085446c30dfc616ca',
+            'default_graph_version' => 'v3.3',
+            //'default_access_token' => '{access-token}', // optional
+            ]);
+            
+            //$helper = $fb->getPageTabHelper();
+            $response = '';
+            $campos = "id,name,first_name,last_name";
+            try {
+                // Returns a `Facebook\FacebookResponse` object
+                $response = $fb->get("/$senderid?fields=$campos", $token);
+                //$response = $helper->getAccessToken();
+            } catch (Facebook\Exceptions\FacebookResponseException $e) {
+                $response = 'Graph returned an error: ' . $e->getMessage();
+                
+            } catch (Facebook\Exceptions\FacebookSDKException $e) {
+                $response = 'Facebook SDK returned an error: ' . $e->getMessage();
+                
+            }
+            
+            $user = $response->getGraphObject();
+            
+            /* 
+            FUNCION PARA ENVIAR MENSAJES AUTOMATICAMENTE AL USUARIO DE FACEBOOK CON SU ID
+            SIN UTILIZAR DIALOGFLOW, EL MENSAJE ES DIRECTO 
+            */
+            /* $url = "https://graph.facebook.com/v2.6/me/messages?access_token=$token";
+            $jsonData = '{
+                "recipient":{
+                    "id":"' . $senderid . '"
+                },
+                "message":{
+                    "text":"¡Hola ' . $user['name'] . '! 😃 soy Lucy ⚡ y atenderé tus inquietudes relacionadas con las interrupciones del servicio de energía."
+                }
+            }';
+            
+            //Initiate cURL.
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+            $result = curl_exec($ch);
+            insertUserFacebook($this->con, $result);
+            
+            $json['fulfillmentText'] = $user['name']; */
+            
+            
+            //definimos los arrays por cada una de las plataformas que tenemos para llenar con la informacion que trae la bd
+            
+            //definicion de mensaje de salida
+            $mensajeSalida = array();
+            
+            //RESPUESTA AL UUARIO POR DIALOGFLOW
+            $arraySalida = array(
+                'type' => 0,
+                'platform' => 'facebook',
+                'image' => array(
+                    'imageUri' => 'https://chatbotchec.website/chatbotCHECUsuarios/img/CHEC_CHATBOTImagen(1).jpg',
+                ),
+            );
+            array_push($mensajeSalida, $arraySalida);
+            
+            $arraySalida2 = array(
+                'type' => 0,
+                'platform' => 'facebook',
+                'text' => array(
+                    'text' => [
+                        "¡Hola " . $user['first_name'] . "! 😃 soy Lucy ⚡ y atenderé tus inquietudes relacionadas con las interrupciones del servicio de energía.",
+                        //"¡Hola! 😃 soy Lucy ⚡ y atenderé tus inquietudes relacionadas con las interrupciones del servicio de energía.",
+                    ],
+                ),
+            );
+            array_push($mensajeSalida, $arraySalida2);
+            
+            //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+            $json['fulfillmentMessages'] = $mensajeSalida;
+            
+            return $json;
+            
+        }
+        
+        //traer el nombre para facebook
+        public function getInicioConversaciom($reqBody){
+            
+            //insertIdConversacion($this->con, $reqBody);
+            
+            $mensajeSalida = array();
+            $nombreUsuario = '';
+            $returnNombre = false;
+            $token = "EAAEwWxZAJ04wBAA0tggtnvjjo9Xg8Lu1gnzcK26axOVGTFPz6ddmir04zF5TJowk3lfdBiatu2TYCTXflmqlepIrXm8nclQGeV4LA2aTLeWqLXdUDqDzkZCFCUju7rWS7GMMWtm8xvfcNIXpmhZCBzsC7UDWzzn3Rfyk4Pv4QZDZD";
+            
+            if (isset($reqBody['originalDetectIntentRequest']['source'])) {
+                if ($reqBody['originalDetectIntentRequest']['source'] == 'facebook') {
+                    $returnNombre = true;
+                }
+            } else {
+                $returnNombre = false;
+            }
+            
+            //Obtenemos el nombre de cada usuario que se contacta
+            if ($returnNombre) {
+                if ($reqBody['originalDetectIntentRequest']['source'] == 'facebook') {
+                    
+                    //Obtenemos los atributos de facebook
+                    $senderid = $reqBody['originalDetectIntentRequest']['payload']['data']['sender']['id'];
+                    //$senderid = '456759688448314';
+                    $fb = new \Facebook\Facebook([
+                        'app_id' => '334642750804876',
+                        'app_secret' => '0fa27d2d9249adb4e4e21ad75d68656c',
+                        'default_graph_version' => 'v3.3', 
+                        
+                        ]);
+                        
+                        $response = '';
+                        $campos = "id,name,first_name,last_name";
+                        try {
+                            $response = $fb->get("/$senderid?fields=$campos", $token);
+                            
+                        } catch (Facebook\Exceptions\FacebookResponseException $e) {
+                            $response = 'Graph returned an error: ' . $e->getMessage();
+                            
+                        } catch (Facebook\Exceptions\FacebookSDKException $e) {
+                            $response = 'Facebook SDK returned an error: ' . $e->getMessage();
+                            
+                        }
+                        
+                        $user = $response->getGraphObject();
+                        $nombreUsuario = $user['first_name'];
+                        
+                    } else if ($reqBody['originalDetectIntentRequest']['source'] == 'telegram') {
+                        $nombreUsuario = $reqBody['originalDetectIntentRequest']['payload']['data']['message']['from']['first_name'];
+                    }
+                    
+                } else {
+                    
+                    $nombreUsuario = '🙋‍♀️';
+                    $GLOBALS['Nombre_Uusario'] = $nombreUsuario;
+                    
+                    
+                }
+                
+                $json['outputContexts'] = array(
+                    
+                    array(
+                        "name" => 'projects/chatboteh-uspjim/agent/sessions/4c20f5a1-b242-03e4-60ad-9c79e0ef6e8e/contexts/nombre',
+                        "lifespanCount" => 1,
+                        "parameters" => array(
+                            "nombre" => $nombreUsuario,
+                            "nombre.original" => $nombreUsuario,
+                        ),
+                    ),                       
+                );  
+                
+                $json['followupEventInput'] = array(
+                    'name' => 'inicioConversacionGetNombre',
+                    'languageCode' => 'es',
+                );
+                
+                
+                return $json;
+            }
+            
+            
+            //segun la categoria que venga de dialogflow se consulta las preguntas en la base de datos
+    public function getPreguntasSugeridas($categoria){
+        $titulo;
+        $subtitulo; 
+                
+        if($categoria == "proveedores"){
+          $preguntas = getQuestionsProvider($this->con);
+          $payLoad = "respuesta_Proveedores";
+          $titulo = "proveedorr";
+          $subtitulo = "pregunta del proveedor";
+          $response = "proveedores";
+
+        }else if($categoria == "alumbrado publico"){            
+            $preguntas = getQuestionsStreetLighting($this->con);
+            $payLoad = "respuesta_AlumbradoPublico";
+            $titulo = "alumbrado publico";
+            $subtitulo = "alumbrado publico";
+            $response = "alumbrado publico";
+
+        }else if($categoria == "atencion al cliente"){
+            $titulo = "atencion al cliente";
+            $subtitulo = "atencion al cliente";
+
+        }else if($categoria == "convenios"){ 
+            $preguntas = getQuestionsAgreements($this->con);
+            $payLoad = "respuesta_Convenios";                                 
+            $titulo = "convenios";
+            $subtitulo = "convenios";
+            $response = "convenios";
+
+        }else if($categoria == "hoja de vida"){
+            $preguntas = getQuestionsCurriculum($this->con);
+            $payLoad = "respuesta_HojaVida";
+            $titulo = "hoja de vida";
+            $subtitulo = "hoja de vida";
+            $response = "hoja de vida";
+
+        }else if($categoria == "leyes"){
+            $preguntas = getQuestionsLaws($this->con);
+            $payLoad = "respuesta_Leyes";
+            $titulo = "leyes";
+            $subtitulo = "leyes";
+            $response = "leyes";
+
+        }else if($categoria == "normatividad"){            
+            $preguntas = getQuestionsNormativity($this->con);
+            $payLoad = "respuesta_Normatividad";
+            $titulo = "normatividad";
+            $subtitulo = "normatividad";
+            $response = "normatividad";
+
+        }else if($categoria == "proyectos"){            
+            $preguntas = getQuestionsProyects($this->con);
+            $payLoad = "respuesta_Proyectos";
+            $titulo = "proyectos";
+            $subtitulo = "proyectos";
+            $response = "proyectos";
+
+        }else if($categoria == "tarifas"){
+            $preguntas = getNamesTariffs($this->con);
+            $payLoad = "respuesta_Tarifas";
+            $titulo = "tarifas";
+            $subtitulo = "tarifas";
+            $response = "tarifas";
+
+        }else if($categoria == "usuarios"){
+            $preguntas = getQuestionsUsers($this->con);
+            $payLoad = "respuesta_Usuarios";
+            $titulo = "usuarios";
+            $subtitulo = "usuarios";
+            $response = "usuarios";
+            
+        }else if($categoria=="Consulta_informacion_factura"){
+            $preguntas= getQuesionsBill($this->con);
+            $response = "facturas";
+        }
+                
+        return $this->mensajeSalidaFacebook($preguntas, $response);
+                
+    }
+            
+            // mensaje de salida de facebook que muestra las preguntas sugeridas(cards)
+            private function mensajeSalidaFacebook($preguntas, $response){
+                $mensajeSalida = array(); 
+                // numero de elementos(que serian las preguntas para ofrecer, que hay en la base de datos
+                $elements = array(); 
+                
+                //mensaje de salida que va a dar la descripcion de la categoria seleccionada
+                array_push($mensajeSalida, array(
+                    'type' => 0,
+                    'platform' => 'facebook',
+                    'text' => array(
+                        'text' => [
+                            $response,
+                        ],
+                    ),
+                ));
+                
+                //condicional para determinar en que tipo de menu se muestran las preguntas, en una card si son menos de 3. sin mas de 3  en un texto
+                if(count($preguntas) > 3 ){
+                    $text="";
+                    $cont3= 0;
+                    foreach($preguntas as $clave => $pregunta){                                                                 
+                        if($cont3 <= 8){
+                            
+                            if(isset($pregunta->con_pregunta)){
+                                $text .="🔹".$pregunta->con_pregunta."\n";
+                            }else if(isset($pregunta->nombre)){
+                                $text .="🔹".$pregunta->nombre."\n";
+                            }
+                        }
+                        $cont3++;
+                    }
+                    array_push($mensajeSalida, array(
+                        'type' => 0,
+                        'platform' => 'facebook',
+                        'text' => array(
+                            'text' => [
+                                "🙋‍♀️ Estas son las preguntas que los usuarios hacen con mas frecuencia 👇, tal vez te pueda servir alguna de ellas 😊"."\n"."\n".$text,
+                            ],
+                        ),
+                    )); 
+                    
+                }else{
+                    
+                    //cantidad de botones que se van mostrar en la card
+                    foreach($preguntas as $clave => $pregunta){            
+                        
+                        array_push($elements, array(
+                            "type" => 'postback',                
+                            "payload" => $pregunta->con_pregunta,
+                            "title" => "🙆‍♀️ ".$pregunta->con_pregunta,
+                        ));
+                    }
+                    
+                    //307585857           
+                    
+                    //mensaje de salida de facebook        
+                    array_push($mensajeSalida, array(
+                        "type" => 4,
+                        "platform" => "facebook",
+                        "payload" => array(
+                            "facebook" => array(
+                                "attachment" => array(
+                                    "type" => "template",
+                                    "payload" => array(
+                                        "template_type" => "button",
+                                        "text" => "🙋‍♀️ Estas son las preguntas que los usuarios hacen con mas frecuencia 👇, tal vez te pueda servir alguna de ellas 😊",
+                                        "buttons" => $elements,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ));
+                } 
+                //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+                $json['fulfillmentMessages'] = $mensajeSalida;
+                
+                return $json;
+            }
+            
+            
+            // metodo que trae todas las preguntas y respuestas que hay de consultas generales
+            private function obtenerRespuesta($pregunta, $contexto){
+                $QuestionsAndResponses = getAllQuestionsAndResponses($this->con);
+                $answer="";                            
+                
+                if(count($pregunta)==1){
+                    
+                    foreach($QuestionsAndResponses as $key => $QuestionAndResponse){
+                        if($pregunta[0]==$QuestionAndResponse->con_pregunta){
+                            return $QuestionAndResponse->con_respuesta;
+                        }
+                    } 
+                    
+                }else if(count($pregunta) > 1){
+                    
+                    $cont2 = 0;
+                    foreach($QuestionsAndResponses as $key => $questionAnsResponse){
+                        
+                        $cont = 0;                        
+                        
+                        //en las siguientes 3 lineas estamos recibiendo la pregunta de la base de datos y le estamos quitando caracteres raros(comas, ?), luego convertimos la pregunta en un array
+                        $preguntaDb = $questionAnsResponse->con_pregunta;
+                        $preguntaDbSinComas = str_replace(",", "", $preguntaDb);
+                        $preguntaDbSinSignosInterrogacion1 = str_replace("?", "", $preguntaDbSinComas);
+                        $preguntaDbSinSignosInterrogacion2 = str_replace("¿", "", $preguntaDbSinSignosInterrogacion1);
+                        $preguntaDbSinLetras = str_replace("y", "", $preguntaDbSinSignosInterrogacion1);
+                        $arrayPreguntaDb=explode(" ", $preguntaDbSinSignosInterrogacion2);
+                        
+                        foreach($arrayPreguntaDb as $palabrasPregunta){
+                            
+                            foreach($pregunta as $palabra){
+                                
+                                if(strcasecmp($palabrasPregunta, $palabra)==0){
+                                    
+                                    $cont++;
+                                    $cont2++;
+                                }
+                            }
+                        }
+                        
+                        if(count($pregunta) == $cont){                            
+                            $answer .= "🔹 "."*Pregunta:* ".$questionAnsResponse->con_pregunta." *Respuesta:* ".$questionAnsResponse->con_respuesta."\n";
+                            $cont = 0;
+                            //$text .="🔹".$pregunta->con_pregunta."\n";
+                        }
+                        
+                    }
+                    /*if($cont2==0){
+                        $answer = ":( no hay respuesta a esa pregunta...";
+                    }*/
+                    
+                    return $answer;
+                    
+                }
+                
+                
+            }
+            
+            // metodo que trae todas las preguntas y respuestas que hay de facturas
+            private function obtenerRespuestaFactura($pregunta, $contexto){
+                $questionsAndResponses = getAllQuestionsAndResponsesBill($this->con);
+                $answer="";
+                
+                if(count($pregunta)==1){
+                    
+                    foreach($questionsAndResponses as $key => $questionAnsResponse){
+                        if($pregunta[0]==$questionAnsResponse->con_pregunta){
+                            return  $questionAnsResponse->con_respuesta;
+                        }
+                    }
+                    
+                }else if(count($pregunta) > 1){
+                    
+                    $cont2 = 0;
+                    foreach($questionsAndResponses as $key => $questionAnsResponse){
+                        
+                        $cont = 0;                        
+                        
+                        //en las siguientes 3 lineas estamos recibiendo la pregunta de la base de datos y le estamos quitando caracteres raros(comas, ?), luego convertimos la pregunta en un array
+                        $preguntaDb = $questionAnsResponse->con_pregunta;
+                        $preguntaDbSinComas = str_replace(",", "", $preguntaDb);
+                        $preguntaDbSinSignosInterrogacion1 = str_replace("?", "", $preguntaDbSinComas);
+                        $preguntaDbSinSignosInterrogacion2 = str_replace("¿", "", $preguntaDbSinSignosInterrogacion1);
+                        $preguntaDbSinLetras = str_replace("y", "", $preguntaDbSinSignosInterrogacion1);
+                        $arrayPreguntaDb=explode(" ", $preguntaDbSinSignosInterrogacion2);
+                        
+                        foreach($arrayPreguntaDb as $palabrasPregunta){
+                            
+                            foreach($pregunta as $palabra){
+                                
+                                if(strcasecmp($palabrasPregunta, $palabra)==0){
+                                    
+                                    $cont++;
+                                    $cont2++;
+                                }
+                            }
+                        }
+                        
+                        if(count($pregunta) == $cont){                            
+                            $answer .= "🔹 "."*Pregunta:* ".$questionAnsResponse->con_pregunta." *Respuesta:* ".$questionAnsResponse->con_respuesta."\n";
+                            $cont = 0;
+                            //$text .="🔹".$pregunta->con_pregunta."\n";
+                        }
+                        
+                    }
+                    /*if($cont2==0){
+                        $answer = ":( no hay respuesta a esa pregunta...";
+                    }*/
+                    
+                    return $answer;
+                    
+                }
+                
+                
+            }
+            
+            //metodo que define si responder de consultas generales o consultas de la factur
+            private function getTipoRespuesta($pregunta, $contexto){
+                
+                if($contexto == "con_respuestas"){
+                    
+                    return $this->obtenerRespuesta($pregunta, $contexto); 
+                    
+                }else if($contexto == "con_resfactura"){
+                    
+                    return $this->obtenerRespuestaFactura($pregunta, $contexto);                 
+                    
+                }
+            }
+            
+            
+            // este metodo retorna la respuesta a la pregunta que el usuario hizo
+            public function respuestasFacebook($pregunta, $contexto){
+                
+                
+                
+                if($this->getTipoRespuesta($pregunta, $contexto)){
+                    
+                    $mensajeSalida = array(); 
+                    $elements = array();
+                    //respuesta para el usuarios
+                    array_push($mensajeSalida, array(
+                        'type' => 0,
+                        'platform' => 'facebook',
+                        'text' => array(
+                            'text' => [
+                                $this->getTipoRespuesta($pregunta, $contexto),
+                            ],
+                        ),
+                    ));
+                    
+                    // continuacion del flujo de la conversacion despues de dar respuesta al usuario
+                    array_push($elements, array(
+                        "content_type" => 'text',
+                        "title" => "😃Si",            
+                        "payload" => 'siSirvio',                
+                    ));
+                    array_push($elements, array(
+                        "content_type" => 'text', 
+                        "title" => "😕No",           
+                        "payload" => 'noSirvio',                
+                    ));
+                    
+                    array_push($mensajeSalida, array(
+                        "type" => 4,
+                        "platform" => "facebook",
+                        "payload" => array(
+                            "facebook" => array(
+                                //"text" => "🙋‍♀️ te he servido de ayuda ?",
+                                "text" => "🙋‍♀️ Espero que te haya servido mi ayuda, 🙆‍♀️ te puedo ayudar en algo mas?",
+                                "quick_replies" => $elements, 
+
+                            ),
+                        ),
+                    ));
+                    
+                }else{
+                    
+                    $mensajeSalida = array(); 
+                    $elements = array();
+                    /*  array_push($mensajeSalida, array(
+                        'type' => 0,
+                        'platform' => 'facebook',
+                        'text' => array(
+                            'text' => [
+                                
+                            ],
+                        ),
+                    ));*/
+                    
+                    array_push($elements, array(
+                        "content_type" => 'text',
+                        "title" => "👩‍💻Otra Consulta",            
+                        "payload" => 'otra_consulta',                
+                    ));
+                    array_push($elements, array(
+                        "content_type" => 'text', 
+                        "title" => "👨‍💻Ir Con Asesor",           
+                        "payload" => 'ir_Con_Asesor',                
+                    ));
+                    
+                    array_push($mensajeSalida, array(
+                        "type" => 4,
+                        "platform" => "facebook",
+                        "payload" => array(
+                            "facebook" => array(
+                                "text" => "🙋‍♀️ Lo siento mucho pero todavia no me han dado la respuesta de esa pregunta 🤦‍♀️, pero si quieres puedes hacer otra consulta 👩‍💻, o te puedo comunicar con un asesor por chat 👨‍💻.",
+                                "quick_replies" => $elements,                       
+                            ),
+                        ),
+                    ));
+                    
+                }                                
+                
+                //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+                $json['fulfillmentMessages'] = $mensajeSalida;
+                
+                return $json;
+            }
+            
+
+
+            
+            
+            /*public function getDescargarTarifas(){
+                
+                $mensajeSalida = array(); 
+                $elements = array();
+                $botones = array();
+                
+                $linksTarifas = getAllLinksTariffs($this->con);                                
+                foreach($linksTarifas as $link){
+                    echo $link->link;
+                
+                
+                // continuacion del flujo de la conversacion despues de dar respuesta al usuario
+                array_push($botones, array(
+                    "type" => 'web_url',            
+                    "url" => 'http://pruebabot.260mb.net/descarTarifas/tarifas.php',
+                    "title" => "🗓enero",
+                ));
+                array_push($botones, array(
+                    "type" => 'web_url',            
+                    "url" => 'http://pruebabot.260mb.net/descarTarifas/tarifas.php',
+                    "title" => "🗓febrero",
+                ));
+                array_push($botones, array(
+                    "type" => 'web_url',            
+                    "url" => 'http://pruebabot.260mb.net/descarTarifas/tarifas.php',
+                    "title" => "🗓Marzo",
+                ));
+                
+                array_push($elements, array(
+                    "title" => "Descarga las tarifas",
+                    "subtitle" => "🙋‍♀️ Aquí encontraras las tarifas definidas de los ultimos tres meses 🗓",
+                     "image_url" => "http://www.grupoprogedsa.com/public/uploads/image/aumentarlasventascrecer-es-63.jpg",
+                     "buttons" => $botones,                
+                ));
+                                       
+                //307585857                        
+                //mensaje de salida de facebook
+                array_push($mensajeSalida, array(
+                    "type" => 4,
+                    "platform" => "facebook",
+                    "payload" => array(
+                         "facebook" => array(
+                               "attachment" => array(
+                                  "type" => "template",
+                                 "payload" => array(
+                                     "template_type"=>"generic",
+                                      "image_aspect_ratio"=> "horizontal",
+                                      "elements" => $elements
+                                  )
+                            )
+                        )
+                    )
+                ));
+                                                                                                                        
+             //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+             $json['fulfillmentMessages'] = $mensajeSalida;
+                                        
+             return $json;
+            }*/
+
+
+ 
+    //metodo que guarda las calificaciones que hacen los usuarios
+    public function guardarCalificacion($calificacion, $reqBody){
+
+            guardarCalificacionDB($this->con, $calificacion, $reqBody);
+            $mensajeSalida = array();         
+
+            array_push($mensajeSalida, array(
+                'type' => 0,
+                'platform' => 'facebook',
+                'text' => array( 
+                 'text' => [
+                    '🙋‍♀️ Fue un gusto haberte atendido, recuerda que siempre estoy disponible a tus servicios. Si necesitas otra consulta, solo vuélveme a saludar 👋',
+                 ],
+                ),
+            ));
+
+
+        //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+        $json['fulfillmentMessages'] = $mensajeSalida;
+        return $json;
+    }
+
+
+    //retomar la conversacion despues de un tiempo largo 
+    public function retomarConversacion($reqBody){
+        
+        if (isset($reqBody['originalDetectIntentRequest']['source'])) {
+
+        if ($reqBody['originalDetectIntentRequest']['source'] == 'facebook') {
+
+            return $this->fallbackFacebook($reqBody); 
+
+        }
+
+        } else {           
+
+            //$this->insertIdConversacion($reqBody); 
+            $json['followupEventInput'] = array(
+                'name' => 'evento_inicio_conversacion',            
+                'languageCode' => 'es',
+            );
+
+            return $json;
+        }
+        
+
+    }
+
+    //metodo que busca en la frase que viene del reqbody una palabra coincidente
+    private function buscarPalabraCoincidente($frase){
+
+        $palabraEncontrada = "";    
+        if(stripos($frase, "proveedores") || stripos($frase, "proveedor") || strcasecmp($frase, "proveedores")==0 || strcasecmp($frase, "proveedor")==0){
+            $palabraEncontrada = "proveedores";
+
+        }else if(stripos($frase, "alumbrado publico") || stripos($frase, "alumbrado") || strcasecmp($frase, "alumbrado publico")==0 || strcasecmp($frase, "alumbrado")==0){
+            $palabraEncontrada = "alumbrado publico";
+
+        }/*else if(stripos($frase, "atencion al cliente")){
+            $palabraEncontrada = "atencion al cliente";
+
+        }*/else if(stripos($frase, "convenios") || stripos($frase, "convenio") || stripos($frase, "comvenios") || strcasecmp($frase, "convenios")==0 || strcasecmp($frase, "comvenios")==0 || strcasecmp($frase, "comvenio")==0){
+            $palabraEncontrada = "convenios";
+
+        }else if(stripos($frase, "hoja de vida") || strcasecmp($frase, "hoja de vida")==0){
+            $palabraEncontrada = "hoja de vida";
+
+        }else if(stripos($frase, "leyes") || stripos($frase, "ley") || strcasecmp($frase, "leyes")==0 || strcasecmp($frase, "ley")==0){
+            $palabraEncontrada = "leyes";
+
+        }else if(stripos($frase, "normatividad") || strcasecmp($frase, "normatividad")==0){
+            $palabraEncontrada = "normatividad";
+
+        }else if(stripos($frase, "proyectos") || stripos($frase, "proyecto") || strcasecmp($frase, "proyectos")==0 || strcasecmp($frase, "proyecto")==0){
+            $palabraEncontrada = "proyectos";
+
+        }else if(stripos($frase, "tarifas") || stripos($frase, "tarifa") || strcasecmp($frase, "tarifas")==0 || strcasecmp($frase, "tarifa")==0){
+            $palabraEncontrada = "tarifas";
+
+        }else if(stripos($frase, "usuarios") || stripos($frase, "usuario") || strcasecmp($frase, "usuarios")==0 || strcasecmp($frase, "usuario")==0){
+            $palabraEncontrada = "usuarios";
+        }
+
+        return $palabraEncontrada;
+    }
+
+    private function fallbackFacebook($reqBody)
+    {
+        $json = array();        
+        $payload= " "; 
+
+        
+
+        if (isset($reqBody['originalDetectIntentRequest']['payload']['data']['postback'])) {
+            $payload = $reqBody['originalDetectIntentRequest']['payload']['data']['postback']['payload'];
+            $json = $this->returnJsonFallback($payload, true);            
+        } else if (isset($reqBody['originalDetectIntentRequest']['payload']['data']['message'])) {
+ 
+            
+            if(isset($reqBody['originalDetectIntentRequest']['payload']['data']['message']['text'])){
+
+                //guardamos la frase que viene de reqboby en la posicion 0 de un array
+                $frase[] = $reqBody['originalDetectIntentRequest']['payload']['data']['message']['text'];                
+                //$flag = " ";
+
+                //en este condicional mandamos la frase que viene en el reqbody para verificar si existe una respuesta 
+                if($this->obtenerRespuestaFactura($frase, null)){  
+                    
+                    //respuestasFacebook($frase, 'con_resfactura') es un metodo que me trae una respuesta a las preguntas de factura
+                    $json = $this->respuestasFacebook($frase, 'con_resfactura');
+    
+                }else if($this->buscarPalabraCoincidente($reqBody['originalDetectIntentRequest']['payload']['data']['message']['text'])){
+                    $payload = $this->buscarPalabraCoincidente($reqBody['originalDetectIntentRequest']['payload']['data']['message']['text']);                                
+                    $json = $this->returnJsonFalback2($payload);    
+                }
+
+            }
+
+        }/*else if($band == false){
+            $payload = $reqBody['originalDetectIntentRequest']['payload']['data']['message']['quick_reply']['payload'];
+            $json = $this->returnJsonFallback($payload, true);
+
+        }*/
+
+        //si el json tiene algo, lo retorna, sino tiene nada, retorna una evento que apunta al inicio de la conversacion
+        if(!empty($json)){
+            return $json;
+        }else{
+
+
+            $json['followupEventInput'] = array(
+                'name' => 'evento_inicio_conversacion',            
+                'languageCode' => 'es',
+            );
+
+            return $json;
+        }
+        
+    }
+
+
+    //metodo que se usa para retomar una conversacion y solo es utilizado cunado viene un payload en el reqbody
+    private function returnJsonFallback($payload, $flag){
+
+        switch($payload){
+
+            case 'Consulta_informacion_factura':                                 
+                $outputContext = array();
+                $fulfillmentMessages = $this->getPreguntasSugeridas("Consulta_informacion_factura");
+                $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages']; 
+                array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/inicio_cerrado', 1));
+                array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/nombre', array("nombre" => '👩‍💻'), 1));
+                $json['outputContexts'] = $outputContext;
+            break;
+            case '😁Bueno':
+                $json['followupEventInput'] = $this->crearEvento('evento_calificacion_despedida'); 
+                $outputContext = array();
+                array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/inicio_cerrado', 1));
+                //array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/nombre', array("nombre" => '👩‍💻'), 1));
+                $json['outputContexts'] = $outputContext;
+            break;
+            case '😕Regular':
+                $outputContext = array();
+                array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/nombre', array("nombre" => '👩‍💻'), 1));
+                $json['outputContexts'] = $outputContext;
+            break;
+            case '😣Malo':
+                $outputContext = array();
+                array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/nombre', array("nombre" => '👩‍💻'), 1));
+                $json['outputContexts'] = $outputContext;
+            break;
+           
+        }
+
+    }
+
+    //metodo que se usa para retomar una conversacion y solo es utilizado cunado viene un mensaje en el reqbody
+    private function returnJsonFalback2($payLoad){
+
+        $json = array();
+
+        if($payLoad=='proveedores'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("proveedores");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='alumbrado publico'){  
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("alumbrado publico");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;      
+
+        }else if($payLoad=='atencion al cliente'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("atencion al cliente");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='convenios'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("convenios");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='hoja de vida'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("hoja de vida");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='leyes'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("leyes");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='normatividad'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("normatividad");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='proyectos'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("proyectos");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }else if($payLoad=='usuarios'){
+            $outputContext = array();   
+            $fulfillmentMessages = $this->getPreguntasSugeridas("usuarios");
+            $json['fulfillmentMessages'] = $fulfillmentMessages['fulfillmentMessages'];                                                                                                      
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/inicio_cerrado', 1));
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/fb2ec211-9175-bee9-1d43-c4627c7da4fe/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;
+
+        }/*else if ($payLoad=='Consultas'){
+            $outputContext = array();                              
+            $json['followupEventInput'] = $this->crearEvento('evento_menuconsultas');             
+            array_push($outputContext, $this->crearContexto2('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/inicio_cerrado', 1));                        
+            array_push($outputContext, $this->crearContexto('projects/chatboteh-uspjim/agent/sessions/4e1019a0-5db5-3258-d08e-0acd670cb199/contexts/nombre', array("nombre" => '🙋‍♀️'), 1));
+            $json['outputContexts'] = $outputContext;            
+        }*/
+
+        return $json;
+
+    }
+                                    
+                                    
+                                    // este metodo retorna la respuesta a la pregunta que el usuario hizo
+                                    /*public function respuestasFacebook($pregunta, $contexto){
+                                        
+                                        $mensajeSalida = array(); 
+                                        $elements = array();
+                                        
+                                        //respuesta para el usuarios
+                                        array_push($mensajeSalida, array(
+                                            'type' => 0,
+                                            'platform' => 'facebook',
+                                            'text' => array(
+                                                'text' => [
+                                                    $this->getTipoRespuesta($pregunta, $contexto),
+                                                ],
+                                            ),
+                                        ));
+                                        
+                                        // continuacion del flujo de la conversacion despues de dar respuesta al usuario
+                                        array_push($elements, array(
+                                            "type" => 'postback',            
+                                            "payload" => 'siSirvio',
+                                            "title" => "😀 si",
+                                        ));
+                                        array_push($elements, array(
+                                            "type" => 'postback',            
+                                            "payload" => 'noSirvio',
+                                            "title" => "😕 no",
+                                        ));
+                                        
+                                        array_push($mensajeSalida, array(
+                                            "type" => 4,
+                                            "platform" => "facebook",
+                                            "payload" => array(
+                                                "facebook" => array(
+                                                    "attachment" => array(
+                                                        "type" => "template",
+                                                        "payload" => array(
+                                                            "template_type" => "button",
+                                                            "text" => "🙋‍♀️ te he servido de ayuda ?",
+                                                            "buttons" => $elements,
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ));
+                                        
+                                        
+                                        
+                                        //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+                                        $json['fulfillmentMessages'] = $mensajeSalida;
+                                        
+                                        return $json;
+                                    }*/
+                                    
+                                    
+                                    
+                                    
+                                    /* 
+                                    // mensaje de salida de facebook que muestra las preguntas sugeridas(carousel)
+                                    private function mensajeSalidaFacebook($titulo, $preguntas){
+                                        $mensajeSalida = array(); 
+                                        // numero de elementos(que serian las preguntas para odrecer), que hay en la base de datos
+                                        $elements = array(); 
+                                        $response = '🙋‍♀️ estas son algunas de las preguntas mas frecuentes que los usuarios hacen 👇, tal vez te pueda servir alguna de ellas 🤷‍♀️. O si lo prefieres, haz tu pregunta 😊';
+                                        
+                                        array_push($mensajeSalida, array(
+                                            'type' => 0,
+                                            'platform' => 'facebook',
+                                            'text' => array(
+                                                'text' => [
+                                                    $response,
+                                                ],
+                                            ),
+                                        ));
+                                        
+                                        
+                                        foreach($preguntas as $clave => $pregunta){            
+                                            
+                                            array_push($elements, array(
+                                                "title" => $titulo,
+                                                "subtitle" => $pregunta->con_pregunta,
+                                                "image_url" => "https://img.freepik.com/vector-gratis/fondo-pincel-acrilico-abstracto-azul-textura-fondo_53876-86373.jpg?size=626&ext=jpg",
+                                                "buttons" => array(
+                                                    array(
+                                                        "type" => 'postback',
+                                                        "payload" => 'respuesta_Usuarios',
+                                                        "title" => 'Ver Respuesta'
+                                                        )                                    
+                                                        )                
+                                                    ));
+                                                }
+                                                
+                                                //307585857
+                                                
+                                                //mensaje de salida de facebook
+                                                array_push($mensajeSalida, array(
+                                                    "type" => 4,
+                                                    "platform" => "facebook",
+                                                    "payload" => array(
+                                                        "facebook" => array(
+                                                            "attachment" => array(
+                                                                "type" => "template",
+                                                                "payload" => array(
+                                                                    "template_type"=>"generic",
+                                                                    "image_aspect_ratio"=> "horizontal",
+                                                                    "elements" => $elements
+                                                                    )
+                                                                    )
+                                                                    )
+                                                                    )
+                                                                ));
+                                                                
+                                                                //MENSAJE DE SALIDA FINAL, lo igualamos al array que hemos construido
+                                                                $json['fulfillmentMessages'] = $mensajeSalida;
+                                                                
+                                                                return $json;
+                                                            }
+                                                            */
+
+
+
+     private function crearEvento($event)
+    {
+        return array(
+            'name' => $event,
+            'languageCode' => 'es',
+        );
+    }
+
+    private function crearContexto($contextoNombre, $parameters, $lifeSpan)
+    {
+        return array(
+            "name" => $contextoNombre,
+            "lifespanCount" => $lifeSpan,
+            "parameters" => $parameters,
+        );
+    }
+    private function crearContexto2($contextoNombre, $lifeSpan)
+    {
+        return array(
+            "name" => $contextoNombre,
+            "lifespanCount" => $lifeSpan,
+        );
+    }
+                                                            
+}
+                                                        
+
+
+
+
+                                                        

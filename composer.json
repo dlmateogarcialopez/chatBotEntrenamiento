@@ -1,0 +1,24 @@
+{
+    "name": "user/chatbotchec-service",
+    "description": "chatbot para atencion al cliente CHEC",
+    "authors": [{
+        "name": "Juan Cardona",
+        "email": "prjchec.jcardona@umanizales.edu.co"
+    }],
+    "require": {
+        "php": ">=7.0.0",        
+        "ext-imap": "^7.3",
+        "ext-soap": "^7.3",
+        "prezent/soap-client": "^0.1.4",
+        "guzzlehttp/guzzle": "^6.3",
+        "facebook/graph-sdk": "^5.7",
+        "imal-h/pdf-box": "^1.3",
+        "spipu/html2pdf": "^5.2",
+        "picqer/php-barcode-generator": "^2.2",
+        "mongodb/mongodb": "^1.12",
+        "phpmailer/phpmailer": "^6.6"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.4"
+    }
+}

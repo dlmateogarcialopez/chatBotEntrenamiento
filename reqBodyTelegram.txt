@@ -1,0 +1,1 @@
+{"source":"telegram","payload":{"data":{"from":{"last_name":"G\u00f3mez Hern\u00e1ndez","first_name":"Edwin Gerardo","id":613620891,"language_code":"es"},"chat":{"type":"private","id":"613620891"},"message_id":6151,"text":"1.\u26a1 Falta de Energ\u00eda.","date":1587064852}}}
