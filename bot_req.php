@@ -42,8 +42,6 @@ $nombreSalida = '😄';
 $contextoNombre = '';
 $contextoReporte = '';
 
-$api->checkTextUser($reqBody);
-
 foreach ($reqBody['queryResult']['outputContexts'] as $i => $con) {
     $name = explode('/', $con['name']);
     $largeContext = count($name);
@@ -76,7 +74,7 @@ if (isset($reqBody['queryResult']['intent']['displayName'])) {
     if ($typeIntent == 'inicio_conversacion') {
         //$response = $api->pruebaMateo($reqBody);
 
-        $response = $api->getInicioConversacion($reqBody);
+        $response = $api->chargeText();
         $responseContexts = false;
     }
 }

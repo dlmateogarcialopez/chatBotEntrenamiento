@@ -3,7 +3,6 @@
 error_reporting(-1);
 ini_set('display_errors', 'On');
 require './consultas.php';
-include './sendEmail.php';
 
 require 'Mesmotronic/Soap/WsaSoap.php';
 require 'Mesmotronic/Soap/WsaSoapClient.php';
@@ -13,14 +12,12 @@ require 'Mesmotronic/Soap/WsseAuthHeader.php';
 // require './SGO/load_reportes_SGO.php';
 require_once __DIR__ . '/vendor/autoload.php';
 
-//Libreria html2pdf para convertir los datos que vienen en pdf
-use Spipu\Html2Pdf\Html2Pdf;
-
 
 class chatBotAPI
 {
     //conexion db desarrollo chec
-    private $hostHerokuChec = "mongodb://localhost:27017/heroku_qqkvqh3x";
+    private $hostHerokuChec = "mongodb://localhost:27017/admin";
+    //private $hostHerokuChec = "mongodb://admin:root@localhost:27017/admin";
 
     //conexion a BD
     private $conHerokuChecDev;
@@ -42,7 +39,7 @@ class chatBotAPI
     public function connectDbHerokuChec()
     {
         try {
-            $this->conHerokuChec = new MongoDB\Driver\Manager($this->hostHerokuChec);
+            $this->conHerokuChecDev = new MongoDB\Driver\Manager($this->hostHerokuChec);
         } catch (MongoDB\Driver\Exception\Exception $e) {
             $filename = basename(__FILE__);
             echo "The $filename script has experienced an error.\n";
@@ -55,7 +52,7 @@ class chatBotAPI
 
     public function chargeText()
     {
-        $data = getTextoPqr($this->conHerokuChecDev);
+        $data = saveTextUser($this->conHerokuChecDev, 'prueba');
 
         return $data;
     }
